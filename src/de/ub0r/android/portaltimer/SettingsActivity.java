@@ -37,12 +37,15 @@ public class SettingsActivity extends PreferenceActivity implements
 		addPreferencesFromResource(R.xml.cooldown);
 		addPreferencesFromResource(R.xml.additional);
 
-		Preference p = findPreference("start_ingress");
-		p.setEnabled(getPackageManager().getLaunchIntentForPackage(
-				MainActivity.INGRESS_PACKAGE) != null);
+		boolean hasIngress = getPackageManager().getLaunchIntentForPackage(
+				MainActivity.INGRESS_PACKAGE) != null;
+		if (!hasIngress) {
+			findPreference("start_ingress").setEnabled(false);
+			findPreference("hide_app").setDependency(null);
+		}
 
 		for (String k : Timer.COOLDOWN_KEYS) {
-			p = findPreference(k);
+			Preference p = findPreference(k);
 			if (p == null) {
 				continue;
 			}
@@ -54,14 +57,12 @@ public class SettingsActivity extends PreferenceActivity implements
 	public boolean onPreferenceChange(final Preference preference,
 			final Object newValue) {
 		String s = newValue.toString();
-		try {
-			Timer.parseCooldownString(s);
-			return true;
-		} catch (NumberFormatException e) {
+		boolean correct = Timer.isValidCooldownString(s);
+		if (!correct) {
 			Toast.makeText(this, getString(R.string.parse_error, s),
 					Toast.LENGTH_LONG).show();
-			Log.e(TAG, "parse error", e);
-			return false;
+			Log.e(TAG, "parse error");
 		}
+		return correct;
 	}
 }

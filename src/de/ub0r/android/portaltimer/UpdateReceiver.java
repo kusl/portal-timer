@@ -51,7 +51,7 @@ public class UpdateReceiver extends BroadcastReceiver {
 	private static long lastUpdate = 0L;
 
 	public static void trigger(final Context context) {
-		if (lastUpdate < SystemClock.elapsedRealtime() - 1000L) {
+		if (lastUpdate < System.currentTimeMillis() - 1000L) {
 			new UpdateReceiver().updateNotification(context);
 		}
 		context.sendBroadcast(new Intent(context, UpdateReceiver.class));
@@ -64,7 +64,13 @@ public class UpdateReceiver extends BroadcastReceiver {
 		for (int j = 0; j < Timer.TIMER_IDS.length; j++) {
 			if (Timer.TIMER_KEYS[j].equals(a)) {
 				Timer t = new Timer(context, j);
-				t.start(context);
+				if (t.isRunning()
+						&& PreferenceManager.getDefaultSharedPreferences(
+								context).getBoolean("cancel_tap", false)) {
+					t.reset(context);
+				} else {
+					t.start(context);
+				}
 			}
 		}
 		if (updateNotification(context)) {
@@ -74,11 +80,11 @@ public class UpdateReceiver extends BroadcastReceiver {
 
 	private boolean updateNotification(final Context context) {
 		Log.d(TAG, "updateNotification()");
-		lastUpdate = SystemClock.elapsedRealtime();
+		lastUpdate = System.currentTimeMillis();
 		NotificationManager nm = (NotificationManager) context
 				.getSystemService(Context.NOTIFICATION_SERVICE);
 		ArrayList<Timer> timers = new ArrayList<Timer>();
-		mNow = SystemClock.elapsedRealtime();
+		mNow = System.currentTimeMillis();
 		mNextTarget = 0;
 		boolean alert = false;
 		Log.d(TAG, "mNow: " + mNow);
@@ -115,14 +121,14 @@ public class UpdateReceiver extends BroadcastReceiver {
 		b.setAutoCancel(false);
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) { // GB-
 			b.setContentText(context.getString(R.string.notification_text,
-					timers.get(0).getFormated(), timers.get(1).getFormated(),
-					timers.get(2).getFormated()));
+					timers.get(0).getFormatted(), timers.get(1).getFormatted(),
+					timers.get(2).getFormatted()));
 		} else { // HC+
 			RemoteViews v = new RemoteViews(context.getPackageName(),
 					R.layout.notification);
 			for (int j = 0; j < Timer.TIMER_IDS.length; j++) {
 				v.setTextViewText(Timer.TIMER_IDS[j], timers.get(j)
-						.getFormated().toString());
+						.getFormatted().toString());
 				Intent ij = new Intent(Timer.TIMER_KEYS[j], null, context,
 						UpdateReceiver.class);
 				v.setOnClickPendingIntent(Timer.TIMER_IDS[j], PendingIntent
@@ -204,7 +210,13 @@ public class UpdateReceiver extends BroadcastReceiver {
 			}
 		}
 		Log.d(TAG, "next: " + t);
-		am.set(AlarmManager.ELAPSED_REALTIME, t, PendingIntent.getBroadcast(
+		long et;
+		if (t - System.currentTimeMillis() < 100) { // IllegalState?
+			et = 1000 + SystemClock.elapsedRealtime();
+		} else {
+			et = t - System.currentTimeMillis() + SystemClock.elapsedRealtime();
+		}
+		am.set(AlarmManager.ELAPSED_REALTIME, et, PendingIntent.getBroadcast(
 				context, 0, new Intent(context, UpdateReceiver.class),
 				PendingIntent.FLAG_UPDATE_CURRENT));
 	}
